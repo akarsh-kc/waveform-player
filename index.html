@@ -219,6 +219,13 @@ svg{display:block;}
 .card .heart svg{width:14px;height:14px;}
 .card .heart.active{color:var(--accent);}
 .card .heart.active svg{fill:var(--accent);}
+.qbadge{position:absolute;top:6px;right:6px;font-size:9px;font-weight:800;letter-spacing:.4px;line-height:1;
+  padding:4px 6px;border-radius:6px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.85);
+  text-transform:uppercase;white-space:nowrap;}
+.qbadge.q-hd{background:linear-gradient(135deg,rgba(255,182,72,.28),rgba(255,106,92,.22));border-color:rgba(255,182,72,.45);color:#ffdba8;}
+.qbadge.q-hi{border-color:rgba(255,255,255,.22);color:#fff;}
+.qbadge.q-std{opacity:.75;}
 
 .tracktable{width:100%;border-collapse:collapse;}
 .tracktable th{text-align:left;font-size:11px;color:var(--text-dim2);text-transform:uppercase;letter-spacing:.6px;
@@ -2692,6 +2699,25 @@ function visibleTrackIds(){ return visibleTracks().map(t=>t.id); }
 function trackBitrate(t){
   return (t.file && t.file.size && t.duration) ? (t.file.size*8/1000)/t.duration : 0;
 }
+function trackFormatExt(t){
+  const fname = (t.file && t.file.name) || '';
+  return (fname.split('.').pop()||'').toUpperCase() || (t.file && t.file.type ? t.file.type.split('/').pop().toUpperCase() : '');
+}
+/* Small "HD FLAC / 1024k" style badge for grid cards — shortened, modern pill.
+   Lossless containers get a gold "HD" treatment; everything else is tiered by est. bitrate. */
+const LOSSLESS_EXT = new Set(['FLAC','WAV','ALAC','AIFF','APE','DSF','DFF']);
+function qualityBadgeHTML(t){
+  const ext = trackFormatExt(t);
+  const br = Math.round(trackBitrate(t));
+  const lossless = LOSSLESS_EXT.has(ext);
+  let label, tier;
+  if(lossless){ label = 'HD '+(ext||'LOSSLESS'); tier='hd'; }
+  else if(br>=256){ label = (ext?ext+' ':'')+br+'k'; tier='hi'; }
+  else if(br>0){ label = br+'k'; tier='std'; }
+  else if(ext){ label = ext; tier='std'; }
+  else return '';
+  return `<span class="qbadge q-${tier}">${escapeHtml(label)}</span>`;
+}
 function sortTracks(list){
   const arr = list.slice();
   switch(state.sortBy){
@@ -2712,6 +2738,7 @@ function cardHTML(t){
   const fav = state.favorites.has(t.id);
   return `<div class="card" data-id="${t.id}" style="--seed1:${t.seed[0]};--seed2:${t.seed[1]}">
     <div class="art">${trackArtHTML(t)}
+      ${qualityBadgeHTML(t)}
       <div class="playhit"><button class="cardPlay" data-id="${t.id}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button></div>
     </div>
     <div class="title ${playing?'playing':''}">${escapeHtml(t.title)}</div>
@@ -3152,6 +3179,15 @@ document.querySelectorAll('.tab').forEach(tab=>{
 
 /* init */
 (async function initApp(){
+  // Ask the browser not to auto-evict this origin's storage under disk pressure.
+  // Without this, IndexedDB (where the imported library lives) is "best-effort"
+  // and browsers — Brave especially — can silently clear it between sessions.
+  if(navigator.storage && navigator.storage.persist){
+    try{
+      const already = await navigator.storage.persisted();
+      if(!already) await navigator.storage.persist();
+    }catch(e){}
+  }
   const meta = await loadLibraryFromDB();
   const eqMeta = meta.eq;
   applyTheme(meta.theme || 'signature', false);
