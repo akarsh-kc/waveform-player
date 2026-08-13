@@ -45,4 +45,23 @@ and they're stored locally in your browser, ready to play offline any time.
 4. Optional: use your browser's "Install App" / "Add to Home Screen" /
    "Add to taskbar" option to run Waveform like a native app, offline.
 
-## 🗂️ Project structure
+## 🔒 Privacy
+
+Waveform never makes a network request for your music. All audio, artwork,
+and metadata stay in your browser's local storage. The service worker only
+caches the app's own static files (HTML/CSS/JS/icons) so the app shell loads
+offline — it never touches your imported audio.
+
+## ⚠️ Known browser quirks
+
+Some privacy-hardened browsers/settings (e.g. Brave's "Clear cookies and
+site data when you close all windows") can clear locally stored libraries
+between sessions. If your imported songs disappear after closing the app,
+check that setting for this site and make sure it's disabled.
+
+## 🛠️ Tech
+
+Vanilla HTML/CSS/JS, Web Audio API (EQ, limiter, analyser), IndexedDB
+(persistent storage), Service Worker (offline app shell), Web App Manifest
+(installability). No build tools, no external runtime dependencies.
+
