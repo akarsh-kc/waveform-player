@@ -8,7 +8,7 @@
 // Bump this version string every time you edit index.html (or any cached file)
 // and push to GitHub Pages. Changing the name is what makes the browser fetch
 // fresh files instead of serving the old cached ones.
-const CACHE_NAME = 'waveform-cache-v1';
+const CACHE_NAME = 'waveform-cache-v2';
 
 const APP_SHELL = [
   './',
