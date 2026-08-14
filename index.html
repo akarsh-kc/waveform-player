@@ -137,6 +137,15 @@ img{-webkit-user-drag:none;user-drag:none;}
 #ambientBg .blob.b2{width:54vw;height:54vw;bottom:-26%;right:-10%;background:var(--amb2,#050505);opacity:.26;animation:driftB 26s ease-in-out infinite alternate;}
 #ambientBg .blob.b3{width:40vw;height:40vw;top:40%;left:38%;background:var(--amb3,#050505);opacity:.2;animation:driftC 30s ease-in-out infinite alternate;}
 #ambientBg.idle .blob{opacity:.16;}
+/* Paused during active touch-scroll (see the 'scrolling' class toggle in JS) — these three
+   blobs run a continuous blur(150px) drift animation at all times, including when nothing is
+   playing, which is a heavy per-frame compositing cost on low-end GPUs that competes directly
+   with the browser's own scroll thread for the same frame budget. Freezing the animation for
+   the ~150ms window around an active drag doesn't cause any visible jump (it's a 20-30s slow
+   drift, a still frame during a scroll gesture is imperceptible) but frees up real headroom
+   for the scroll itself on exactly the hardware where it's needed. Nothing changes when the
+   page is idle/not being scrolled. */
+#ambientBg.scrolling .blob{animation-play-state:paused;}
 @media (min-width:901px){
   /* Larger viewports spread the same vw-sized blobs over far more physical area, which reads
      as more intense colour and a more noticeable hue shift from one side of the screen to the
@@ -239,6 +248,7 @@ img{-webkit-user-drag:none;user-drag:none;}
 
 /* ---------- Main ---------- */
 .main{grid-row:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;padding:20px 24px 30px;position:relative;
+  -webkit-overflow-scrolling:touch;contain:content;
   scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;}
 .main::-webkit-scrollbar{width:5px;}
 .main::-webkit-scrollbar-track{background:transparent;}
@@ -313,6 +323,7 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .recent-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:2px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
 .recent-row::-webkit-scrollbar{height:6px;}
 .recent-card{flex:0 0 132px;width:132px;scroll-snap-align:start;background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);
+  contain:layout style;
   border-radius:var(--radius-md);padding:10px;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s cubic-bezier(.2,.8,.3,1);}
 .recent-card:hover{border-color:var(--glass-stroke);background:var(--glass-fill-strong);transform:translateY(-3px);}
 .recent-card .art{width:100%;aspect-ratio:1;border-radius:14px;margin-bottom:8px;overflow:hidden;position:relative;
@@ -337,6 +348,7 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
   padding:6px 14px;outline:none;flex-shrink:0;}
 .sortselect:hover{border-color:var(--glass-stroke);background:var(--glass-fill-strong);}
 .card{background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);border-radius:var(--radius-md);padding:12px;position:relative;
+  contain:layout style;
   transition:background .18s ease,border-color .18s ease,transform .18s cubic-bezier(.2,.8,.3,1),box-shadow .18s ease;}
 .card:hover{border-color:var(--glass-stroke);background:var(--glass-fill-strong);transform:translateY(-3px);box-shadow:0 16px 32px -14px rgba(0,0,0,.55);}
 .card .art{width:100%;aspect-ratio:1;border-radius:14px;margin-bottom:10px;overflow:hidden;position:relative;
@@ -737,6 +749,31 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .ctxmenu .ctx-sep{height:1px;background:var(--border);margin:6px 4px;}
 .ctxmenu .ctx-label{font-size:10.5px;color:var(--text-dim2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:6px 10px 4px;}
 .ctxmenu .ctx-check{margin-left:auto;color:var(--accent);}
+
+/* ---------- Prompt modal (replaces the OS-native prompt() for playlist naming) ----------
+   Same glass-card language as the rest of the app (ctxmenu/sheets) instead of the browser's
+   own unstyled prompt() dialog. Reusable via showPromptModal({title,placeholder,confirmLabel})
+   → Promise<string|null>, so both "New playlist" entry points (sidebar + button, and the
+   track's "Add to playlist" menu) share one component. */
+.promptmodal-backdrop{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .18s ease;}
+.promptmodal-backdrop.open{opacity:1;pointer-events:auto;}
+.promptmodal{width:100%;max-width:340px;background:linear-gradient(180deg, var(--glass-fill-strong), rgba(20,20,24,.96) 55%);
+  border:1px solid var(--glass-stroke);border-radius:var(--radius-lg);padding:22px;
+  box-shadow:0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);
+  transform:translateY(10px) scale(.97);opacity:0;transition:transform .2s cubic-bezier(.16,1,.3,1), opacity .2s ease;}
+.promptmodal-backdrop.open .promptmodal{transform:translateY(0) scale(1);opacity:1;}
+.promptmodal h3{margin:0 0 14px;font-size:15.5px;font-weight:700;}
+.promptmodal input{width:100%;background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);
+  border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font-size:14px;font-family:inherit;
+  outline:none;transition:border-color .16s ease,background .16s ease;}
+.promptmodal input:focus{border-color:var(--accent);background:var(--glass-fill-strong);}
+.promptmodal input::placeholder{color:var(--text-dim2);}
+.promptmodal .promptmodal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+.promptmodal .promptmodal-actions .pillbtn{padding:9px 18px;font-size:12.5px;}
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--border);
   color:var(--text);padding:10px 18px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:300;opacity:0;pointer-events:none;
   transition:opacity .2s, transform .2s;}
@@ -916,28 +953,31 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 @media (max-width:900px){
   .app{grid-template-columns:minmax(0,1fr);}
   .sidebar{position:fixed;top:0;left:0;bottom:0;width:230px;z-index:100;transform:translateX(-100%);
-    /* A single ease curve applied to both transform and opacity together (rather than the plain
-       linear-ish "ease" used before) gives the drawer a soft decelerate-into-place feel instead
-       of a flat slide, and fading it in alongside the slide reads as noticeably smoother/less
-       abrupt for the same 0.32s duration — this is a pure timing-function change, nothing about
-       what triggers open/close moved.
+    /* Shortened from .32s/.28s and switched to a snappier curve: on real low/mid-end Android
+       hardware the compositor can't hold 60fps for the full duration of a slow drawer slide,
+       so a "correct on paper" 320ms ease reads as a heavy, dragging half-second in practice —
+       fewer total frames to drop is what actually reads as "light" on that hardware, more than
+       any curve shape does. contain:layout paint scopes this element's own layout/paint work so
+       the browser doesn't have to consider the rest of the page while it's animating — pure
+       isolation, doesn't change how the drawer looks at rest or mid-slide.
        will-change promotes the drawer to its own GPU layer up front instead of on the first
        animation frame, so the slide starts compositor-driven immediately — this is what removed
        the visible stutter/half-open flash on real mid-range Android hardware, without changing
        the animation's timing, curve, or duration at all. */
-    transition:transform .32s cubic-bezier(.16,1,.3,1), opacity .28s ease;
-    will-change:transform,opacity;
+    transition:transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+    will-change:transform,opacity;contain:layout paint;
     opacity:.55;
     box-shadow:20px 0 40px rgba(0,0,0,.4);
     background:rgba(0,0,0,.97);backdrop-filter:none;-webkit-backdrop-filter:none;} /* more opaque + no blur here:
     on the drawer the sidebar sits right in front of the dimmed backdrop, so the frosted-glass
     blur was picking up the dimmed content behind it and washing out the menu text */
   .sidebar.open{transform:translateX(0);opacity:1;}
-  .drawer-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none;} /* same fix as the sidebar
+  .drawer-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none;transition-duration:.18s;} /* same fix as the sidebar
     above: blurring a full-screen fixed layer while its opacity animates is what was costing the
     extra frame time that made the whole drawer feel like it was catching up to your finger —
     dropping the blur (kept for the ≥901px popover use of this same class) removes that cost
-    on the exact widths where it mattered, the 2px blur was barely visible to begin with. */
+    on the exact widths where it mattered, the 2px blur was barely visible to begin with.
+    Shortened to match the sidebar's own new .18s opacity fade above so both finish together. */
   .drawer-backdrop.open{display:block;opacity:1;}
   .hamburger{display:flex;}
   .main{min-width:0;}
@@ -1366,6 +1406,16 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 </div>
 
 <div class="ctxmenu" id="ctxMenu"></div>
+<div class="promptmodal-backdrop" id="promptModalBackdrop">
+  <div class="promptmodal" role="dialog" aria-modal="true">
+    <h3 id="promptModalTitle">New playlist</h3>
+    <input type="text" id="promptModalInput" maxlength="60" autocomplete="off">
+    <div class="promptmodal-actions">
+      <button class="pillbtn ghost" id="promptModalCancel">Cancel</button>
+      <button class="pillbtn primary" id="promptModalConfirm">Create</button>
+    </div>
+  </div>
+</div>
 
 <!-- Bulk selection action bar -->
 <div class="bulkbar" id="bulkBar">
@@ -4125,18 +4175,56 @@ ctxMenu.addEventListener('click', e=>{
     repositionCtxMenu();
   }
   else if(act==='new-pl'){
-    const name = prompt('Playlist name');
-    if(!name) return;
-    const pl = {id:newId(), name, trackIds:[ctxTrackId]};
-    state.playlists.push(pl); persistMeta(); renderPlaylists();
-    toast('Added to "'+name+'"');
+    const trackId = ctxTrackId;
     closeCtxMenu();
+    promptNewPlaylist(trackId);
   }
 });
 document.addEventListener('click', e=>{
   if(ctxMenu.classList.contains('open') && !ctxMenu.contains(e.target) && !e.target.closest('[data-more]')) closeCtxMenu();
 });
 document.addEventListener('scroll', closeCtxMenu, true);
+
+/* ============ PROMPT MODAL (custom, replaces native prompt()) ============ */
+const promptModalBackdrop = document.getElementById('promptModalBackdrop');
+const promptModalInput = document.getElementById('promptModalInput');
+const promptModalTitle = document.getElementById('promptModalTitle');
+const promptModalConfirm = document.getElementById('promptModalConfirm');
+const promptModalCancel = document.getElementById('promptModalCancel');
+let promptModalResolve = null;
+function showPromptModal({title='New playlist', placeholder='Playlist name', confirmLabel='Create', value=''}={}){
+  promptModalTitle.textContent = title;
+  promptModalInput.placeholder = placeholder;
+  promptModalInput.value = value;
+  promptModalConfirm.textContent = confirmLabel;
+  promptModalBackdrop.classList.add('open');
+  // rAF so the transition (opacity/transform) actually plays instead of the class flip and
+  // the focus happening in the same synchronous frame it was added.
+  requestAnimationFrame(()=>{ promptModalInput.focus(); });
+  return new Promise(resolve=>{ promptModalResolve = resolve; });
+}
+function closePromptModal(result){
+  promptModalBackdrop.classList.remove('open');
+  promptModalInput.blur();
+  if(promptModalResolve){ promptModalResolve(result); promptModalResolve=null; }
+}
+promptModalConfirm.addEventListener('click', ()=>{
+  const v = promptModalInput.value.trim();
+  closePromptModal(v || null);
+});
+promptModalCancel.addEventListener('click', ()=>closePromptModal(null));
+promptModalBackdrop.addEventListener('click', e=>{ if(e.target===promptModalBackdrop) closePromptModal(null); });
+promptModalInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); promptModalConfirm.click(); }
+  else if(e.key==='Escape'){ e.preventDefault(); closePromptModal(null); }
+});
+async function promptNewPlaylist(trackId){
+  const name = await showPromptModal({title:'New playlist', placeholder:'Playlist name', confirmLabel:'Create'});
+  if(!name) return;
+  const pl = {id:newId(), name, trackIds: trackId?[trackId]:[]};
+  state.playlists.push(pl); persistMeta(); renderPlaylists();
+  if(trackId) toast('Added to "'+name+'"');
+}
 
 /* ============ PLAYLISTS ============ */
 function renderPlaylists(){
@@ -4145,13 +4233,7 @@ function renderPlaylists(){
   el.innerHTML = state.playlists.map(p=>`<button class="playlist-item ${state.view==='playlist:'+p.id?'active':''}" data-pl="${p.id}"><span class="dot"></span><span class="name">${escapeHtml(p.name)}</span><span class="plcount">${p.trackIds.length}</span></button>`).join('');
   el.querySelectorAll('[data-pl]').forEach(b=>b.addEventListener('click', ()=>setView('playlist:'+b.dataset.pl)));
 }
-document.getElementById('addPlaylistBtn').onclick = ()=>{
-  const name = prompt('Playlist name');
-  if(!name) return;
-  state.playlists.push({id:newId(), name, trackIds:[]});
-  persistMeta();
-  renderPlaylists();
-};
+document.getElementById('addPlaylistBtn').onclick = ()=>{ promptNewPlaylist(null); };
 
 /* ============ NAV / VIEWS ============ */
 function setView(view){
@@ -4181,6 +4263,24 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.tab==='eq') requestAnimationFrame(resizeEqScope);
   });
 });
+
+/* ============ LOW-END SCROLL SMOOTHNESS: pause ambient blobs during active scroll ============
+   One passive, capture-phase listener on the whole document (rather than one per scroll
+   container) so it covers .main/.sidebar-scroll/.tabpanel/.rightpanel/etc — including ones
+   added later — without wiring up each individually. Debounced with a short timeout so rapid
+   scroll events don't thrash the class on/off; resumes automatically ~150ms after the last
+   scroll event, same as before. Purely a compositing-cost optimisation — see the CSS rule on
+   #ambientBg.scrolling — nothing here changes what's rendered, only when the drift animation
+   is paused. */
+(function setupScrollPerfGuard(){
+  const ambientBg = document.getElementById('ambientBg');
+  let scrollTimer = null;
+  document.addEventListener('scroll', ()=>{
+    ambientBg.classList.add('scrolling');
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(()=>ambientBg.classList.remove('scrolling'), 150);
+  }, {capture:true, passive:true});
+})();
 
 /* init */
 (async function initApp(){
