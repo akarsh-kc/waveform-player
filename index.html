@@ -368,6 +368,9 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .qbadge.q-std{background:var(--glass-fill);color:rgba(255,255,255,.65);}
 
 .tracktable{width:100%;border-collapse:collapse;}
+.tracktable .col-check{width:28px;}
+.tracktable .col-time{width:60px;}
+.tracktable .col-actions{width:104px;}
 .tracktable th{text-align:left;font-size:11px;color:var(--text-dim2);text-transform:uppercase;letter-spacing:.6px;
   font-weight:700;padding:0 10px 10px;border-bottom:1px solid var(--border);}
 .tracktable td{padding:9px 10px;font-size:13px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:middle;transition:background .14s ease;}
@@ -1007,8 +1010,45 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
   .hero-left{max-width:100%;}
   .hero h1{font-size:21px;}
   .grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;}
-  .tracktable th:nth-child(3),.tracktable td:nth-child(3){display:none;}
-  .recent-card{flex:0 0 108px;width:108px;}
+  .tracktable{table-layout:fixed;}
+  /* Album never fit on phone widths anyway; Title is the only column that should flex, so
+     it's kept as the sole "auto" column below (no width rule) and gets 100% of whatever's
+     left over from the other three fixed-width columns. */
+  .tracktable .col-album{display:none;}
+  .tracktable .col-check{width:20px;padding-left:8px;padding-right:2px;}
+  .tracktable .col-time{width:38px;font-size:11.5px;padding-left:4px;padding-right:4px;}
+  /* Row actions collapse to a single "more" button on mobile (favorite/add-to-queue/etc are
+     still one tap away in that menu) — this, plus table-layout:fixed above, is the actual fix
+     for the "text cut in the middle" / no-icons-visible bug: previously the table used
+     browser-default auto layout with a 104px actions column that had nowhere to fit once the
+     Title column's own content (thumbnail + title + artist) wanted more room than was left on
+     a ~360-400px phone, so the row silently overflowed sideways and got clipped by .main's
+     overflow-x:hidden — invisibly cutting off the actions column and sometimes mid-word on the
+     title itself, with no scrollbar to reveal it was happening. Fixed layout instead forces
+     every column to respect its declared width and hands 100% of anything left over to the
+     one flexible (Title) column, so nothing can overflow and the ellipsis on long titles/
+     artists renders correctly every time. */
+  .tracktable .col-actions{width:34px;padding-left:0;}
+  .rowbtn-fav,.rowbtn-queue{display:none;}
+  .rowbtn-more{width:30px;height:30px;color:var(--text-dim);}
+  .rowbtn-more svg{width:16px;height:16px;}
+  .tracktable td{padding:10px 8px;}
+  .tracktable .col-title{min-width:0;}
+  .trow-title{gap:10px;}
+  .trow-title .mini{width:40px;height:40px;border-radius:9px;}
+  .trow-title .names{min-width:0;flex:1;}
+  .trow-title .names b{max-width:none;font-size:13.5px;}
+  .trow-title .names small{font-size:12px;}
+  .recent-card{flex:0 0 108px;width:108px;scroll-snap-stop:always;}
+  /* The "cropped" look in your screenshots was a half-visible card left resting at the edge
+     after a flick — scroll-snap-stop:always (above) stops a fast swipe from skipping past a
+     card and landing mid-way through the next one, so it always comes to rest on a fully
+     visible card. The right-edge fade below is purely cosmetic: it turns the sliver of the
+     next card into an intentional "there's more, keep scrolling" hint instead of looking like
+     content got cut off — same pattern Spotify/Apple Music use for this row. Left edge is
+     left unfaded since the row always starts flush at its first card. */
+  .recent-row{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);
+    mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);}
   .section-head .headctrls{margin-left:0;width:100%;justify-content:space-between;}
   .pb-names b,.pb-names small{max-width:38vw;}
   .pb-time{font-size:10px;width:28px;}
@@ -3476,7 +3516,7 @@ function renderCurrentView(){
 
   const listHTML = `
     <table class="tracktable">
-      <thead><tr><th style="width:28px">${selMode?`<input type="checkbox" class="rowcheck" id="headCheck" ${allChecked?'checked':''}>`:''}</th><th>Title</th><th>Album</th><th style="width:60px">Time</th><th style="width:104px"></th></tr></thead>
+      <thead><tr><th class="col-check">${selMode?`<input type="checkbox" class="rowcheck" id="headCheck" ${allChecked?'checked':''}>`:''}</th><th class="col-title">Title</th><th class="col-album">Album</th><th class="col-time">Time</th><th class="col-actions"></th></tr></thead>
       <tbody>
         ${tracks.map(t=>{
           const playing = currentTrack() && currentTrack().id===t.id;
@@ -3486,14 +3526,14 @@ function renderCurrentView(){
             ? `<input type="checkbox" class="rowcheck" data-select="${t.id}" ${selected?'checked':''}>`
             : (playing? '<svg class="barwave" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="9" width="3" height="6"><animate attributeName="height" values="6;16;6" dur="0.9s" repeatCount="indefinite"/><animate attributeName="y" values="9;4;9" dur="0.9s" repeatCount="indefinite"/></rect><rect x="10" y="6" width="3" height="12"><animate attributeName="height" values="12;3;12" dur="0.7s" repeatCount="indefinite"/><animate attributeName="y" values="6;10;6" dur="0.7s" repeatCount="indefinite"/></rect><rect x="17" y="8" width="3" height="8"><animate attributeName="height" values="8;18;8" dur="1.1s" repeatCount="indefinite"/><animate attributeName="y" values="8;3;8" dur="1.1s" repeatCount="indefinite"/></rect></svg>' : '');
           return `<tr class="${playing?'playing':''} ${selected?'selected':''}" data-id="${t.id}" style="--seed1:${t.seed[0]};--seed2:${t.seed[1]}">
-            <td>${firstCell}</td>
-            <td><div class="trow-title"><div class="mini">${trackArtHTML(t)}</div><div class="names"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(t.artist)}</small></div></div></td>
-            <td>${escapeHtml(t.album)}</td>
-            <td>${fmtTime(t.duration)}</td>
-            <td>
-              <button class="rowbtn" data-fav="${t.id}" title="Favorite"><svg viewBox="0 0 24 24" fill="${fav?'currentColor':'none'}" stroke="currentColor" stroke-width="2" style="color:${fav?'var(--accent)':'inherit'}"><path d="M12 21s-7-4.5-9.5-9C.7 8.2 2 4.5 5.5 4c2-.3 3.7.7 4.5 2 .8-1.3 2.5-2.3 4.5-2 3.5.5 4.8 4.2 3 8-2.5 4.5-9.5 9-9.5 9z"/></svg></button>
-              <button class="rowbtn" data-queue="${t.id}" title="Add to queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
-              <button class="rowbtn" data-more="${t.id}" title="More options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
+            <td class="col-check">${firstCell}</td>
+            <td class="col-title"><div class="trow-title"><div class="mini">${trackArtHTML(t)}</div><div class="names"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(t.artist)}</small></div></div></td>
+            <td class="col-album">${escapeHtml(t.album)}</td>
+            <td class="col-time">${fmtTime(t.duration)}</td>
+            <td class="col-actions">
+              <button class="rowbtn rowbtn-fav" data-fav="${t.id}" title="Favorite"><svg viewBox="0 0 24 24" fill="${fav?'currentColor':'none'}" stroke="currentColor" stroke-width="2" style="color:${fav?'var(--accent)':'inherit'}"><path d="M12 21s-7-4.5-9.5-9C.7 8.2 2 4.5 5.5 4c2-.3 3.7.7 4.5 2 .8-1.3 2.5-2.3 4.5-2 3.5.5 4.8 4.2 3 8-2.5 4.5-9.5 9-9.5 9z"/></svg></button>
+              <button class="rowbtn rowbtn-queue" data-queue="${t.id}" title="Add to queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+              <button class="rowbtn rowbtn-more" data-more="${t.id}" title="More options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button>
             </td>
           </tr>`;
         }).join('')}
