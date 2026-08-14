@@ -9,6 +9,29 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "categories": ["music", "entertainment"],
+  "shortcuts": [
+    {
+      "name": "Mix for you",
+      "short_name": "Mix",
+      "description": "Play a smart mix built from your listening history",
+      "url": "./index.html?action=mix",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Shuffle library",
+      "short_name": "Shuffle",
+      "description": "Shuffle-play your whole local library",
+      "url": "./index.html?action=shuffle",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Your Wrapped",
+      "short_name": "Wrapped",
+      "description": "See your local listening recap",
+      "url": "./index.html?action=wrapped",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
   "icons": [
     {
       "src": "icon-192.png",
