@@ -83,17 +83,25 @@ html.flat-theme{
 }
 html.flat-theme #ambientBg .blob{opacity:.14;filter:blur(110px) saturate(100%);}
 html.flat-theme #ambientBg.idle .blob{opacity:.08;animation-play-state:paused;}
-*{box-sizing:border-box;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;overflow:hidden;
+  -webkit-font-smoothing:antialiased;overflow:hidden;-webkit-tap-highlight-color:transparent;
   /* App-shell text isn't meant to be selected like a document — selecting labels/titles during
      a tap-drag (swipe, queue reorder) is what was fighting with those gestures and popping the
      browser's own selection/callout UI instead. Inputs are explicitly re-enabled just below, so
-     typing in the search box or renaming things is completely unaffected. */
+     typing in the search box or renaming things is completely unaffected.
+     -webkit-tap-highlight-color:transparent (set on * above too, belt-and-braces) kills Chrome/
+     Android's own default blue "flash" rectangle that otherwise paints on top of every tappable
+     element on :active/long-press — that flat blue box ignoring a button's real shape/border-
+     radius/gradient is what showed up over the circular transport buttons and the seek bar.
+     Every custom press/hover feedback in this file (:active scale, brightness, background
+     changes) is unaffected — this only removes the browser's own extra highlight layered on
+     top of it. */
   -webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;}
-input,textarea,[contenteditable="true"]{-webkit-user-select:text;-moz-user-select:text;user-select:text;-webkit-touch-callout:default;}
-button{font-family:inherit;cursor:pointer;color:inherit;}
+input,textarea,[contenteditable="true"]{-webkit-user-select:text;-moz-user-select:text;user-select:text;-webkit-touch-callout:default;-webkit-tap-highlight-color:transparent;}
+button{font-family:inherit;cursor:pointer;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+a{-webkit-tap-highlight-color:transparent;}
 input,textarea,select{font-family:inherit;}
 ::-webkit-scrollbar{width:8px;height:8px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -156,7 +164,7 @@ img{-webkit-user-drag:none;user-drag:none;}
   border-radius:14px;align-items:center;justify-content:center;flex-shrink:0;}
 .hamburger svg{width:16px;height:16px;}
 .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;
-  backdrop-filter:blur(2px);opacity:0;transition:opacity .32s ease;}
+  backdrop-filter:blur(2px);opacity:0;transition:opacity .32s ease;will-change:opacity;}
 .sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:120;}
 .panel-close{display:none;}
 
@@ -891,14 +899,24 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
        linear-ish "ease" used before) gives the drawer a soft decelerate-into-place feel instead
        of a flat slide, and fading it in alongside the slide reads as noticeably smoother/less
        abrupt for the same 0.32s duration — this is a pure timing-function change, nothing about
-       what triggers open/close moved. */
+       what triggers open/close moved.
+       will-change promotes the drawer to its own GPU layer up front instead of on the first
+       animation frame, so the slide starts compositor-driven immediately — this is what removed
+       the visible stutter/half-open flash on real mid-range Android hardware, without changing
+       the animation's timing, curve, or duration at all. */
     transition:transform .32s cubic-bezier(.16,1,.3,1), opacity .28s ease;
+    will-change:transform,opacity;
     opacity:.55;
     box-shadow:20px 0 40px rgba(0,0,0,.4);
     background:rgba(0,0,0,.97);backdrop-filter:none;-webkit-backdrop-filter:none;} /* more opaque + no blur here:
     on the drawer the sidebar sits right in front of the dimmed backdrop, so the frosted-glass
     blur was picking up the dimmed content behind it and washing out the menu text */
   .sidebar.open{transform:translateX(0);opacity:1;}
+  .drawer-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none;} /* same fix as the sidebar
+    above: blurring a full-screen fixed layer while its opacity animates is what was costing the
+    extra frame time that made the whole drawer feel like it was catching up to your finger —
+    dropping the blur (kept for the ≥901px popover use of this same class) removes that cost
+    on the exact widths where it mattered, the 2px blur was barely visible to begin with. */
   .drawer-backdrop.open{display:block;opacity:1;}
   .hamburger{display:flex;}
   .main{min-width:0;}
