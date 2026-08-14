@@ -146,14 +146,15 @@ img{-webkit-user-drag:none;user-drag:none;}
    for the scroll itself on exactly the hardware where it's needed. Nothing changes when the
    page is idle/not being scrolled. */
 #ambientBg.scrolling .blob{animation-play-state:paused;}
-@media (min-width:901px){
+@media (min-width:641px){
   /* Larger viewports spread the same vw-sized blobs over far more physical area, which reads
      as more intense colour and a more noticeable hue shift from one side of the screen to the
-     other — so desktop gets an extra opacity cut on top of the base reduction above. */
-  #ambientBg .blob.b1{opacity:.22;}
-  #ambientBg .blob.b2{opacity:.17;}
-  #ambientBg .blob.b3{opacity:.13;}
-  #ambientBg.idle .blob{opacity:.1;}
+     other — so tablet and desktop both get a further opacity cut on top of the mobile base
+     above (mobile already reads correctly at the base values, so it's left alone). */
+  #ambientBg .blob.b1{opacity:.15;}
+  #ambientBg .blob.b2{opacity:.12;}
+  #ambientBg .blob.b3{opacity:.09;}
+  #ambientBg.idle .blob{opacity:.07;}
 }
 @keyframes driftA{from{transform:translate(0,0) scale(1);}to{transform:translate(6%,8%) scale(1.12);}}
 @keyframes driftB{from{transform:translate(0,0) scale(1);}to{transform:translate(-8%,-6%) scale(1.15);}}
@@ -262,6 +263,43 @@ img{-webkit-user-drag:none;user-drag:none;}
 .searchbox svg{width:15px;height:15px;color:var(--text-dim2);flex-shrink:0;}
 .searchbox input{background:none;border:none;outline:none;color:var(--text);font-size:13.5px;width:100%;}
 .searchbox input::placeholder{color:var(--text-dim2);}
+/* ---------- Theme nav item (sidebar, below "Your Wrapped") ----------
+   Reuses .navitem's own chrome (hover fill, active state, pill radius) so it sits naturally
+   among Library/Favorites/Wrapped — the only addition is a live swatch of the current accent
+   in place of an icon. Deliberately no colour glow: just a crisp ring and the gradient itself. */
+.navtheme-btn .navtheme-swatch{width:17px;height:17px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg, var(--accent-2), var(--accent), var(--accent-3));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);}
+
+/* ---------- Theme window (standalone modal opened from the sidebar nav item) ----------
+   Same construction as .promptmodal (backdrop + scale-in glass sheet) so it feels native to
+   the app, but sized to comfortably hold the theme grid rather than a single input row. */
+.thememodal-backdrop{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .18s ease;}
+.thememodal-backdrop.open{opacity:1;pointer-events:auto;}
+.thememodal{width:100%;max-width:420px;max-height:min(600px,86vh);display:flex;flex-direction:column;
+  background:linear-gradient(180deg, var(--glass-fill-strong), rgba(20,20,24,.96) 55%);
+  border:1px solid var(--glass-stroke);border-radius:var(--radius-lg);
+  box-shadow:0 30px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(28px) saturate(180%);-webkit-backdrop-filter:blur(28px) saturate(180%);
+  transform:translateY(10px) scale(.97);opacity:0;transition:transform .2s cubic-bezier(.16,1,.3,1), opacity .2s ease;}
+.thememodal-backdrop.open .thememodal{transform:translateY(0) scale(1);opacity:1;}
+.thememodal-head{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  padding:18px 12px 14px 22px;border-bottom:1px solid var(--glass-stroke-soft);}
+.thememodal-head b{font-size:15.5px;font-weight:700;}
+.thememodal-close{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);color:var(--text-dim);
+  backdrop-filter:blur(var(--glass-blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  transition:background .14s ease,border-color .14s ease,color .14s ease;}
+.thememodal-close svg{width:15px;height:15px;}
+.thememodal-close:hover{background:var(--glass-fill-strong);border-color:var(--glass-stroke);color:var(--text);}
+.thememodal-body{overflow-y:auto;padding:20px 22px 22px;}
+.thememodal-body .theme-grid{margin-bottom:14px;}
+@media (max-width:480px){ .thememodal{max-width:none;width:100%;align-self:flex-end;
+  border-radius:var(--radius-lg) var(--radius-lg) 0 0;max-height:82vh;} .thememodal-backdrop{padding:0;align-items:flex-end;} }
+
 .viewname{font-size:20px;font-weight:700;margin-right:4px;}
 .trackcount{color:var(--text-dim2);font-size:12.5px;}
 
@@ -508,8 +546,25 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .pband-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .pband-head b{font-size:11.5px;font-weight:700;color:var(--text);}
 .pband-fixedtype{font-size:10px;color:var(--text-dim2);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
-.pband-type{background:var(--glass-fill-strong);border:1px solid var(--glass-stroke-soft);color:var(--text-dim);border-radius:8px;
-  font-size:10px;font-weight:700;padding:3px 6px;outline:none;text-transform:uppercase;letter-spacing:.3px;}
+/* Band-type picker (e.g. Low Shelf / High Pass on the low band) — a compact variant of the
+   app's own .customselect dropdown instead of a native <select>, so the open menu is themed
+   glass/flat like everything else instead of falling back to the OS's own list chrome. */
+.pband-typeselect{position:relative;display:inline-flex;}
+.pband-type-trigger{display:flex;align-items:center;gap:4px;background:var(--glass-fill-strong);
+  border:1px solid var(--glass-stroke-soft);color:var(--text-dim);border-radius:8px;
+  font-size:10px;font-weight:700;padding:3px 5px 3px 7px;text-transform:uppercase;letter-spacing:.3px;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;}
+.pband-type-trigger:hover{background:var(--glass-fill);border-color:var(--glass-stroke);color:var(--text);}
+.pband-type-trigger .chev{width:10px;height:10px;flex-shrink:0;transition:transform .16s ease;}
+.pband-typeselect.open .pband-type-trigger .chev{transform:rotate(180deg);}
+.pband-type-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:120px;z-index:20;
+  background:rgba(22,22,27,.92);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  border:1px solid var(--glass-stroke);border-radius:var(--radius-md);padding:6px;box-shadow:var(--glass-shadow);}
+.pband-typeselect.open .pband-type-menu{display:block;}
+.pband-type-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text-dim);
+  font-size:11px;font-weight:700;padding:7px 9px;border-radius:8px;text-transform:uppercase;letter-spacing:.3px;}
+.pband-type-menu button:hover{background:var(--glass-fill);color:var(--text);}
+.pband-type-menu button.active{background:var(--glass-fill-strong);color:var(--accent);}
 .pband-row{display:grid;grid-template-columns:34px 1fr 56px;align-items:center;gap:8px;margin-top:5px;}
 .pband-row .pl{font-size:10px;color:var(--text-dim2);font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
 .pband-row .pv{font-size:10.5px;color:var(--text-dim);font-weight:600;text-align:right;font-variant-numeric:tabular-nums;}
@@ -546,10 +601,11 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 /* Closes (hides) the whole bottom player bar out of the way, e.g. when screen space is tight
    on mobile. Playback keeps running in the background — this only hides the bar itself — and
    .player-reopen-tab (a small floating pill, bottom-right) appears so it's never lost for good. */
-.pb-close{position:absolute;top:8px;right:10px;background:rgba(255,255,255,.08);border:none;
+.pb-close{background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);
   color:var(--text-dim);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;z-index:5;flex-shrink:0;}
-.pb-close:hover{background:rgba(255,255,255,.16);color:var(--text);}
+  justify-content:center;flex-shrink:0;backdrop-filter:blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);transition:background .14s ease,border-color .14s ease,color .14s ease;}
+.pb-close:hover{background:var(--glass-fill-strong);border-color:var(--glass-stroke);color:var(--text);}
 .pb-close svg{width:13px;height:13px;}
 .app.playerbar-hidden .playerbar{transform:translateY(100%);opacity:0;pointer-events:none;}
 .player-reopen-tab{display:none;position:fixed;right:18px;bottom:18px;z-index:140;align-items:center;gap:8px;
@@ -774,6 +830,18 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .promptmodal input::placeholder{color:var(--text-dim2);}
 .promptmodal .promptmodal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
 .promptmodal .promptmodal-actions .pillbtn{padding:9px 18px;font-size:12.5px;}
+
+/* ---------- Large-batch import warning (shares .promptmodal-backdrop/.promptmodal chrome) ---------- */
+.importwarn-modal{max-width:380px;text-align:center;}
+.importwarn-icon{width:44px;height:44px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;
+  justify-content:center;margin:0 auto 14px;color:var(--accent);}
+.importwarn-icon svg{width:20px;height:20px;}
+.importwarn-modal h3{margin:0 0 8px;}
+.importwarn-text{margin:0 0 4px;font-size:12.5px;line-height:1.55;color:var(--text-dim);}
+.importwarn-modal .promptmodal-actions{justify-content:center;margin-top:18px;}
+.importwarn-modal .promptmodal-actions .pillbtn{flex:1;justify-content:center;}
+.importwarn-check{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:16px;font-size:11.5px;
+  color:var(--text-dim2);cursor:pointer;}
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--panel-2);border:1px solid var(--border);
   color:var(--text);padding:10px 18px;border-radius:24px;font-size:12.5px;font-weight:600;z-index:300;opacity:0;pointer-events:none;
   transition:opacity .2s, transform .2s;}
@@ -781,17 +849,22 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 
 /* ---------- Announcement popup (reusable, date-scoped, dismissible) ----------
    One generic component so any future update/feature-tip can be announced by calling
-   showAnnouncement({...}) — see the JS module for the API. Floats as a compact card in the
-   top-right, above the app but never blocking it — not a full-width bar. Reads the same
-   --glass tokens as every other surface, so it matches Liquid Glass and flat theme alike. */
-.announceBar{position:fixed;top:16px;right:16px;z-index:260;width:328px;max-width:calc(100vw - 32px);
+   showAnnouncement({...}) — see the JS module for the API. Centered over a dim backdrop like
+   the app's other modals, so it reads as a deliberate message rather than a corner toast.
+   Reads the same --glass tokens as every other surface, so it matches Liquid Glass and flat
+   theme alike. */
+.announce-backdrop{position:fixed;inset:0;z-index:260;background:rgba(0,0,0,.55);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .22s ease;}
+.announce-backdrop.show{opacity:1;pointer-events:auto;}
+.announceBar{position:relative;z-index:1;width:328px;max-width:calc(100vw - 32px);
   padding:16px 16px 14px;border-radius:var(--radius-lg);
   background:var(--glass-fill-strong);border:1px solid var(--glass-stroke);
   backdrop-filter:blur(var(--glass-blur)) saturate(160%);-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(160%);
   box-shadow:var(--glass-shadow);
-  transform:translateY(-10px) scale(.97);opacity:0;pointer-events:none;
-  transition:transform .34s cubic-bezier(.2,.9,.3,1),opacity .26s ease;will-change:transform,opacity;}
-.announceBar.show{transform:translateY(0) scale(1);opacity:1;pointer-events:auto;}
+  transform:translateY(10px) scale(.96);opacity:0;transition:transform .28s cubic-bezier(.16,1,.3,1),opacity .22s ease;will-change:transform,opacity;}
+.announce-backdrop.show .announceBar{transform:translateY(0) scale(1);opacity:1;}
 .announceBar::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
   background:linear-gradient(135deg, rgba(255,255,255,.05) 0%, rgba(255,255,255,.02) 24%, rgba(255,255,255,0) 46%);
   mix-blend-mode:screen;}
@@ -816,8 +889,7 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
   justify-content:center;z-index:1;transition:background .14s ease,color .14s ease;}
 .announceBar .close:hover{background:var(--glass-fill);color:var(--text);}
 .announceBar .close svg{width:12px;height:12px;}
-@media (max-width:640px){ .announceBar{top:12px;right:12px;left:12px;width:auto;
-  top:max(12px, env(safe-area-inset-top, 0px));} }
+@media (max-width:640px){ .announce-backdrop{padding:14px;} }
 
 /* ---------- Select mode / bulk actions ---------- */
 .rowcheck{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;display:block;}
@@ -1152,6 +1224,10 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg>
       Your Wrapped
     </button>
+    <button class="navitem navtheme-btn" id="themeNavBtn">
+      <span class="navtheme-swatch" id="themeNavSwatch"></span>
+      Theme
+    </button>
 
     <div class="navlabel">Import</div>
     <div class="importbtns">
@@ -1220,7 +1296,6 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
       <button class="tab active" data-tab="queue">Queue</button>
       <button class="tab" data-tab="lyrics">Lyrics</button>
       <button class="tab" data-tab="eq">Equalizer</button>
-      <button class="tab" data-tab="theme">Theme</button>
     </div>
 
     <div class="tabpanel active" id="tab-queue">
@@ -1290,20 +1365,10 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
       </div>
     </div>
 
-    <div class="tabpanel" id="tab-theme">
-      <div class="theme-head"><b>Liquid Glass</b><span class="theme-hint">Frosted, rounded iOS-style surfaces across the whole app</span></div>
-      <div class="eq-toprow" style="margin-bottom:22px;">
-        <div class="eq-toggle">Enable Liquid Glass <div class="switch on" id="liquidSwitch"></div></div>
-      </div>
-      <div class="theme-head"><b>App theme</b><span class="theme-hint">Pick an accent — inspired by popular music apps</span></div>
-      <div class="theme-grid" id="themeGrid"></div>
-      <div class="eq-note">Changes the accent colour, glow, and the seek bar's waveform gradient everywhere in the app. Saved on this device.</div>
-    </div>
   </aside>
 
   <!-- PLAYER BAR -->
   <div class="playerbar">
-    <button class="pb-close" id="pbCloseBtn" title="Hide player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <div class="pb-track">
       <div class="pb-clickzone" id="pbClickzone" title="Open Now Playing">
         <div class="pb-art" id="pbArt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
@@ -1349,6 +1414,7 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
         <button id="muteBtn"><svg id="volIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg></button>
         <input type="range" id="volSlider" min="0" max="100" value="80">
       </div>
+      <button class="pb-close" id="pbCloseBtn" title="Hide player"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <button class="pb-iconbtn" id="panelToggleBtn" title="Queue, lyrics &amp; equalizer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h10"/></svg></button>
     </div>
   </div>
@@ -1417,6 +1483,42 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
   </div>
 </div>
 
+<!-- Theme window — opened from the Theme nav button in the topbar. Reads the same --glass
+     tokens as every other surface, so it renders as a frosted Liquid Glass sheet or a flat,
+     opaque one purely by following html.flat-theme, exactly like the rest of the app. -->
+<div class="thememodal-backdrop" id="themeModalBackdrop">
+  <div class="thememodal" role="dialog" aria-modal="true" aria-label="Theme settings">
+    <div class="thememodal-head">
+      <b>Theme</b>
+      <button class="thememodal-close" id="themeModalCloseBtn" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="thememodal-body">
+      <div class="theme-head"><b>Liquid Glass</b><span class="theme-hint">Frosted, rounded iOS-style surfaces across the whole app</span></div>
+      <div class="eq-toprow" style="margin-bottom:22px;">
+        <div class="eq-toggle">Enable Liquid Glass <div class="switch on" id="liquidSwitch"></div></div>
+      </div>
+      <div class="theme-head"><b>App theme</b><span class="theme-hint">Pick an accent — inspired by popular music apps</span></div>
+      <div class="theme-grid" id="themeGrid"></div>
+      <div class="eq-note">Changes the accent colour, glow, and the seek bar's waveform gradient everywhere in the app. Saved on this device.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Large-batch import warning — shown before the native file/folder picker opens. Same
+     glass construction as .promptmodal so it matches Liquid Glass and flat theme alike. -->
+<div class="promptmodal-backdrop" id="importWarnBackdrop">
+  <div class="promptmodal importwarn-modal" role="dialog" aria-modal="true">
+    <div class="importwarn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4.5M12 8h.01"/></svg></div>
+    <h3>Importing a lot of tracks?</h3>
+    <p class="importwarn-text">Everything is read and tagged right here in your browser, so big batches can take a while and slow the tab down. For large libraries, importing in parts — around 50 files at a time — tends to go a lot smoother.</p>
+    <div class="promptmodal-actions">
+      <button class="pillbtn ghost" id="importWarnCancel">Cancel</button>
+      <button class="pillbtn primary" id="importWarnContinue">Continue</button>
+    </div>
+    <label class="dupmodal-check importwarn-check"><input type="checkbox" id="importWarnHideCheck"> Don't show this again</label>
+  </div>
+</div>
+
 <!-- Bulk selection action bar -->
 <div class="bulkbar" id="bulkBar">
   <span class="bulkcount" id="bulkCount">0 selected</span>
@@ -1452,15 +1554,17 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 <input type="file" id="lrcInput" class="hidden-input" accept=".lrc,text/plain">
 <audio id="audioEl" preload="metadata" crossorigin="anonymous"></audio>
 <div class="toast" id="toast"></div>
-<div class="announceBar" id="announceBar">
-  <button class="close" id="announceClose" title="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-  <div class="ap-head">
-    <span class="dot"></span>
-    <span class="ap-title" id="announceTitle">What's new</span>
-    <span class="ap-date" id="announceDate"></span>
+<div class="announce-backdrop" id="announceBackdrop">
+  <div class="announceBar" id="announceBar">
+    <button class="close" id="announceClose" title="Dismiss"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="ap-head">
+      <span class="dot"></span>
+      <span class="ap-title" id="announceTitle">What's new</span>
+      <span class="ap-date" id="announceDate"></span>
+    </div>
+    <div class="txt" id="announceText"></div>
+    <button class="cta" id="announceCta" style="display:none;"></button>
   </div>
-  <div class="txt" id="announceText"></div>
-  <button class="cta" id="announceCta" style="display:none;"></button>
 </div>
 
 <script>
@@ -1492,6 +1596,7 @@ const state = {
   liquidGlass: true,      // whether the iOS-style liquid glass material is on (vs flat/opaque)
   recentlyPlayed: [],     // array of track ids, most-recent first
   dismissedAnnouncements: [], // ids of announcement banners the user has already closed — never shown again
+  hideImportWarn: false,  // "don't show again" for the large-batch import warning
   libraryViewMode: 'list',// 'list' | 'grid' — how the main track listing renders
   sortBy: 'default',      // default | name | size | quality
   stats: {                // local-only listening stats that power "Your Wrapped" — never leaves the device
@@ -1533,8 +1638,9 @@ function toast(msg){
    Only ever shows once per id (dismissal is remembered in IndexedDB, same place favorites/
    playlists live) and never shows outside its date window — e.g. startDate===endDate===today
    shows it only today, for every user who opens the app today, and never again after. Renders
-   as a small floating card (top-right), reading the same --glass tokens as every other panel,
-   so it automatically matches Liquid Glass or flat theme — never a full-width blocking bar.
+   as a centered card over a dim backdrop, reading the same --glass tokens as every other
+   panel, so it automatically matches Liquid Glass or flat theme — never a full-width blocking
+   bar, but still a deliberate, can't-miss-it message rather than a corner toast.
    Doesn't touch playback, storage schema for tracks, or any other UI — safe to call any time. */
 function showAnnouncement({id, title, date, message, ctaLabel, ctaAction, startDate, endDate}){
   if(!id || !message) return;
@@ -1543,7 +1649,7 @@ function showAnnouncement({id, title, date, message, ctaLabel, ctaAction, startD
   if(startDate && today < startDate) return;
   if(endDate && today > endDate) return;
 
-  const bar = document.getElementById('announceBar');
+  const backdrop = document.getElementById('announceBackdrop');
   document.getElementById('announceTitle').textContent = title || "What's new";
   document.getElementById('announceDate').textContent = date || '';
   document.getElementById('announceText').innerHTML = message;
@@ -1557,11 +1663,12 @@ function showAnnouncement({id, title, date, message, ctaLabel, ctaAction, startD
     ctaBtn.onclick = null;
   }
   document.getElementById('announceClose').onclick = ()=>dismissAnnouncement(id);
-  requestAnimationFrame(()=>bar.classList.add('show'));
+  backdrop.onclick = e=>{ if(e.target===backdrop) dismissAnnouncement(id); };
+  requestAnimationFrame(()=>backdrop.classList.add('show'));
 }
 function dismissAnnouncement(id){
-  const bar = document.getElementById('announceBar');
-  bar.classList.remove('show');
+  const backdrop = document.getElementById('announceBackdrop');
+  backdrop.classList.remove('show');
   if(id && !state.dismissedAnnouncements.includes(id)){
     state.dismissedAnnouncements.push(id);
     persistMeta();
@@ -1651,6 +1758,7 @@ function persistMeta(){
   idbPut('meta', {key:'sortBy', value: state.sortBy});
   idbPut('meta', {key:'stats', value: state.stats});
   idbPut('meta', {key:'dismissedAnnouncements', value: state.dismissedAnnouncements});
+  idbPut('meta', {key:'hideImportWarn', value: state.hideImportWarn});
   /* Resume-on-relaunch (Spotify-style): remember what was queued, which track was current,
      and exactly where playback had gotten to, so reopening the app shows that track loaded
      and paused at the same position instead of the empty "No track loaded" state. Written
@@ -1721,6 +1829,7 @@ async function loadLibraryFromDB(){
     else if(m.key==='sortBy') state.sortBy = ['name','size','quality'].includes(m.value) ? m.value : 'default';
     else if(m.key==='stats' && m.value) state.stats = Object.assign({plays:{},seconds:{},days:[],firstUse:null}, m.value);
     else if(m.key==='dismissedAnnouncements') state.dismissedAnnouncements = m.value||[];
+    else if(m.key==='hideImportWarn') state.hideImportWarn = !!m.value;
     else if(m.key==='playbackQueue') playbackQueueMeta = m.value;
     else if(m.key==='playbackIndex') playbackIndexMeta = m.value;
     else if(m.key==='playbackPosition') playbackPositionMeta = m.value||0;
@@ -1972,8 +2081,28 @@ async function importFiles(fileList){
   toast(msg);
 }
 
-document.getElementById('importFilesBtn').onclick = ()=>document.getElementById('fileInput').click();
-document.getElementById('importFolderBtn').onclick = ()=>document.getElementById('folderInput').click();
+/* Large-batch import warning: shown before the native picker opens (unless the user has
+   dismissed it for good), since importing 50+ files in one go can slow the tab or crash it —
+   everything is parsed/tagged locally in the browser rather than on a server. */
+const importWarnBackdrop = document.getElementById('importWarnBackdrop');
+let pendingImportInputId = null;
+function openImportWarn(inputId){
+  if(state.hideImportWarn){ document.getElementById(inputId).click(); return; }
+  pendingImportInputId = inputId;
+  document.getElementById('importWarnHideCheck').checked = false;
+  importWarnBackdrop.classList.add('open');
+}
+function closeImportWarn(){ importWarnBackdrop.classList.remove('open'); pendingImportInputId = null; }
+document.getElementById('importFilesBtn').onclick = ()=>openImportWarn('fileInput');
+document.getElementById('importFolderBtn').onclick = ()=>openImportWarn('folderInput');
+document.getElementById('importWarnCancel').addEventListener('click', closeImportWarn);
+importWarnBackdrop.addEventListener('click', e=>{ if(e.target===importWarnBackdrop) closeImportWarn(); });
+document.getElementById('importWarnContinue').addEventListener('click', ()=>{
+  if(document.getElementById('importWarnHideCheck').checked){ state.hideImportWarn = true; persistMeta(); }
+  const inputId = pendingImportInputId;
+  closeImportWarn();
+  if(inputId) document.getElementById(inputId).click();
+});
 document.getElementById('fileInput').onchange = e=>importFiles(e.target.files);
 document.getElementById('folderInput').onchange = e=>importFiles(e.target.files);
 
@@ -2927,8 +3056,15 @@ function buildEqUI(){
   const wrap = document.getElementById('eqBandsParam');
   wrap.innerHTML = PARAM_BANDS.map((def,i)=>{
     const cfg = state.eqParam[i];
+    const curType = def.types.find(t=>t.v===cfg.type) || def.types[0];
     const typeHtml = def.types.length>1
-      ? `<select class="pband-type" data-i="${i}">${def.types.map(t=>`<option value="${t.v}" ${cfg.type===t.v?'selected':''}>${t.label}</option>`).join('')}</select>`
+      ? `<div class="pband-typeselect" data-i="${i}">
+          <button type="button" class="pband-type-trigger">
+            <span class="pband-type-label">${curType.label}</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="pband-type-menu">${def.types.map(t=>`<button type="button" data-value="${t.v}" class="${t.v===cfg.type?'active':''}">${t.label}</button>`).join('')}</div>
+        </div>`
       : `<span class="pband-fixedtype">${def.types[0].label}</span>`;
     return `<div class="pband${isPassType(cfg.type)?' is-passtype':''}" data-i="${i}">
       <div class="pband-head"><b>${def.label} · ${def.role}</b>${typeHtml}</div>
@@ -2938,13 +3074,28 @@ function buildEqUI(){
     </div>`;
   }).join('');
 
-  wrap.querySelectorAll('.pband-type').forEach(sel=>sel.addEventListener('change', ()=>{
-    const i = +sel.dataset.i;
-    applyBandParam(i,'type', sel.value);
-    sel.closest('.pband').classList.toggle('is-passtype', isPassType(sel.value));
-    state.eqPreset='custom'; document.getElementById('eqPreset').value='custom'; updatePresetHint('custom');
-    persistMeta();
-  }));
+  wrap.querySelectorAll('.pband-typeselect').forEach(dd=>{
+    const i = +dd.dataset.i;
+    const trigger = dd.querySelector('.pband-type-trigger');
+    const label = dd.querySelector('.pband-type-label');
+    const menu = dd.querySelector('.pband-type-menu');
+    trigger.addEventListener('click', e=>{
+      e.stopPropagation();
+      wrap.querySelectorAll('.pband-typeselect.open').forEach(o=>{ if(o!==dd) o.classList.remove('open'); });
+      dd.classList.toggle('open');
+    });
+    menu.addEventListener('click', e=>{
+      const btn = e.target.closest('button[data-value]'); if(!btn) return;
+      const val = btn.dataset.value;
+      applyBandParam(i,'type', val);
+      label.textContent = btn.textContent;
+      menu.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn));
+      dd.closest('.pband').classList.toggle('is-passtype', isPassType(val));
+      state.eqPreset='custom'; document.getElementById('eqPreset').value='custom'; updatePresetHint('custom');
+      persistMeta();
+      dd.classList.remove('open');
+    });
+  });
   wrap.querySelectorAll('.pband-freq').forEach(sl=>{
     sl.addEventListener('input', ()=>{
       const i = +sl.dataset.i, def = PARAM_BANDS[i];
@@ -2974,6 +3125,9 @@ function buildEqUI(){
     sl.addEventListener('change', persistMeta);
   });
 }
+// Registered once (not inside buildEqUI, which re-renders the bands on every preset change)
+// so open band-type dropdowns close on outside click without stacking duplicate listeners.
+document.addEventListener('click', ()=>document.querySelectorAll('.pband-typeselect.open').forEach(dd=>dd.classList.remove('open')));
 
 function applyBandParam(i, field, value){
   const cfg = state.eqParam[i]; if(!cfg) return;
@@ -4214,6 +4368,15 @@ promptModalConfirm.addEventListener('click', ()=>{
 });
 promptModalCancel.addEventListener('click', ()=>closePromptModal(null));
 promptModalBackdrop.addEventListener('click', e=>{ if(e.target===promptModalBackdrop) closePromptModal(null); });
+
+/* ============ THEME WINDOW (topbar nav button) ============ */
+const themeModalBackdrop = document.getElementById('themeModalBackdrop');
+function openThemeModal(){ themeModalBackdrop.classList.add('open'); }
+function closeThemeModal(){ themeModalBackdrop.classList.remove('open'); }
+document.getElementById('themeNavBtn').addEventListener('click', openThemeModal);
+document.getElementById('themeModalCloseBtn').addEventListener('click', closeThemeModal);
+themeModalBackdrop.addEventListener('click', e=>{ if(e.target===themeModalBackdrop) closeThemeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && themeModalBackdrop.classList.contains('open')) closeThemeModal(); });
 promptModalInput.addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); promptModalConfirm.click(); }
   else if(e.key==='Escape'){ e.preventDefault(); closePromptModal(null); }
