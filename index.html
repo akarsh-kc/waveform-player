@@ -84,9 +84,22 @@ html.flat-theme{
 html.flat-theme #ambientBg .blob{opacity:.14;filter:blur(110px) saturate(100%);}
 html.flat-theme #ambientBg.idle .blob{opacity:.08;animation-play-state:paused;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;tap-highlight-color:transparent;}
-html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+html,body{margin:0;padding:0;height:100%;width:100%;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;overflow:hidden;-webkit-tap-highlight-color:transparent;
+  -webkit-font-smoothing:antialiased;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;
+  -webkit-tap-highlight-color:transparent;
+  /* position:fixed pins the document itself so nothing about the page can be dragged
+     sideways at all — overflow:hidden alone stops CSS-level scrolling, but several mobile
+     in-app browsers (Telegram's WebView is the one in your screenshots — see the status-bar
+     icon) implement their own edge-swipe "peek at the page behind this one" gesture at the
+     browser-chrome level, which pans the actual rendered pixels regardless of what overflow
+     is set to on html/body. That's what was cutting "Your library" down to "ur library" and
+     leaving a stray horizontal-scrollbar thumb (the white square) parked at the right edge.
+     touch-action:pan-y + overscroll-behavior:none tell the browser this page never accepts a
+     horizontal drag/back gesture, and position:fixed removes the document as a pannable
+     surface entirely — every actual scroll area (.main, .sidebar-scroll, .tabpanel, etc)
+     still scrolls normally because each sets its own overflow-y:auto independently. */
+  position:fixed;inset:0;
   /* App-shell text isn't meant to be selected like a document — selecting labels/titles during
      a tap-drag (swipe, queue reorder) is what was fighting with those gestures and popping the
      browser's own selection/callout UI instead. Inputs are explicitly re-enabled just below, so
@@ -225,7 +238,7 @@ img{-webkit-user-drag:none;user-drag:none;}
 .playlist-item.active .dot{background:var(--accent);}
 
 /* ---------- Main ---------- */
-.main{grid-row:1;overflow-y:auto;overflow-x:hidden;padding:20px 24px 30px;position:relative;
+.main{grid-row:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;padding:20px 24px 30px;position:relative;
   scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent;}
 .main::-webkit-scrollbar{width:5px;}
 .main::-webkit-scrollbar-track{background:transparent;}
@@ -297,7 +310,7 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 
 /* ---------- Recently played (single-row horizontal scroll) ---------- */
 .recent-section{margin-bottom:28px;}
-.recent-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.recent-row{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:2px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
 .recent-row::-webkit-scrollbar{height:6px;}
 .recent-card{flex:0 0 132px;width:132px;scroll-snap-align:start;background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);
   border-radius:var(--radius-md);padding:10px;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s cubic-bezier(.2,.8,.3,1);}
@@ -2164,6 +2177,40 @@ function playTrackAtIndex(idx){
   loadLyricsForTrack(track);
   recordRecentlyPlayed(track.id);
   recordPlayStart(track);
+}
+/* Resume-on-relaunch (Spotify-style): called once at boot with the {playbackQueue,
+   playbackIndex, playbackPosition} block loadLibraryFromDB() already reads back from
+   IndexedDB. Loads the last track into the audio element and seeks to where playback left
+   off, WITHOUT calling audioEl.play() — so it reopens paused at that exact position instead
+   of the empty "No track loaded" state, same as Spotify/Apple Music. Doesn't touch
+   recordPlayStart/recordRecentlyPlayed since nothing was actually (re)played yet. */
+function restoreLastSession(meta){
+  const savedQueue = meta.playbackQueue;
+  if(!Array.isArray(savedQueue) || !savedQueue.length) return;
+  const savedTrackId = savedQueue[meta.playbackIndex];
+  // Tracks deleted since last session shouldn't leave gaps/wrong-index in the restored queue.
+  const queue = savedQueue.filter(id=>state.library.some(t=>t.id===id));
+  if(!queue.length) return;
+  let idx = queue.indexOf(savedTrackId);
+  if(idx<0) idx = 0;
+  const track = trackById(queue[idx]);
+  if(!track) return;
+  state.queue = queue;
+  state.currentIndex = idx;
+  initAudioGraph(); // idempotent, safe pre-gesture (stays 'suspended' until a real play() happens)
+  audioEl.src = track.url;
+  audioEl.playbackRate = parseFloat(document.getElementById('speedSelect').value);
+  statsTracking.trackId = track.id;
+  const savedPos = meta.playbackPosition||0;
+  const applySavedPosition = ()=>{
+    try{ audioEl.currentTime = Math.min(savedPos, audioEl.duration||savedPos); }catch(e){}
+    updateNowPlayingUI();
+  };
+  if(audioEl.readyState>=1) applySavedPosition();
+  else audioEl.addEventListener('loadedmetadata', applySavedPosition, {once:true});
+  updateNowPlayingUI();
+  renderQueue();
+  loadLyricsForTrack(track);
 }
 /* Tracks recently played history — most-recent first, capped, deduped, persisted. */
 function recordRecentlyPlayed(id){
@@ -4137,6 +4184,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     document.getElementById('enhanceWidthVal').textContent = state.enhance.width+'%';
   }
   if(state.library.length) toast(state.library.length+' track'+(state.library.length===1?'':'s')+' restored');
+  restoreLastSession(meta);
 
   /* Handle home-screen shortcut launches (manifest "shortcuts": Mix for you / Shuffle / Wrapped).
      These are the real, OS-supported equivalent of a "widget" for a PWA — long-pressing the
