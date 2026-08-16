@@ -186,6 +186,13 @@ img{-webkit-user-drag:none;user-drag:none;}
   backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
   border-radius:14px;align-items:center;justify-content:center;flex-shrink:0;}
 .hamburger svg{width:16px;height:16px;}
+.rescanbtn{background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);color:var(--text-dim);width:36px;height:36px;
+  border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .5s ease;}
+.rescanbtn:hover{border-color:var(--glass-stroke);background:var(--glass-fill-strong);color:var(--text);}
+.rescanbtn svg{width:16px;height:16px;}
+.rescanbtn.spinning svg{animation:rescanspin 1s linear infinite;}
+@keyframes rescanspin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
 .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;
   backdrop-filter:blur(2px);opacity:0;transition:opacity .32s ease;will-change:opacity;}
 .sheet-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:120;}
@@ -371,6 +378,21 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
 .recent-card .title{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .recent-card .title.playing{color:var(--accent);}
 .recent-card .sub{font-size:11px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+
+/* ---------- Filter chips (Genre/Artist/Mood — single-row horizontal scroll, same
+   scroll mechanics as .recent-row so it feels like one family of components) ---------- */
+.chip-section{margin-bottom:28px;}
+.chip-row{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;padding:2px 2px 10px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.chip-row::-webkit-scrollbar{height:6px;}
+.chip{flex:0 0 auto;scroll-snap-align:start;display:flex;align-items:center;gap:6px;padding:8px 16px;
+  background:var(--glass-fill);border:1px solid var(--glass-stroke-soft);border-radius:var(--radius-pill);
+  font-size:12.5px;font-weight:700;color:var(--text-dim);white-space:nowrap;cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .12s ease;}
+.chip:hover{border-color:var(--glass-stroke);background:var(--glass-fill-strong);color:var(--text);}
+.chip:active{transform:scale(.96);}
+.chip.active{background:var(--text);color:#0b0b0f;border-color:transparent;}
+html:not(.flat-theme) .chip.active{background:linear-gradient(165deg, rgba(255,255,255,.92), rgba(235,235,238,.86));}
+.chip .chipcount{font-size:10.5px;font-weight:700;color:inherit;opacity:.55;}
 
 /* ---------- List/grid toggle + sort control ---------- */
 .section-head{flex-wrap:wrap;gap:10px 16px;}
@@ -1161,6 +1183,9 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
      left unfaded since the row always starts flush at its first card. */
   .recent-row{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);
     mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);}
+  .chip{padding:7px 14px;font-size:12px;scroll-snap-stop:always;}
+  .chip-row{-webkit-mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);
+    mask-image:linear-gradient(to right, #000 calc(100% - 30px), transparent 100%);}
   .section-head .headctrls{margin-left:0;width:100%;justify-content:space-between;}
   .pb-names b,.pb-names small{max-width:38vw;}
   .pb-time{font-size:10px;width:28px;}
@@ -1261,6 +1286,9 @@ html:not(.flat-theme) .pillbtn.primary:hover{background:linear-gradient(165deg, 
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="text" id="searchInput" placeholder="Search title, artist, or album">
       </div>
+      <button class="rescanbtn" id="rescanTagsBtn" title="Re-read genre/artist/album tags for songs already in your library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0115-6.7L21 8M3 22v-6h6M21 12a9 9 0 01-15 6.7L3 16"/></svg>
+      </button>
       <button class="pillbtn ghost" id="selectModeBtn">Select</button>
     </div>
 
@@ -1739,6 +1767,7 @@ function persistTrack(track){
   idbPut('tracks', {
     id: track.id, fileBlob: track.file, coverBlob: track.coverBlob||null,
     title: track.title, artist: track.artist, album: track.album,
+    genre: track.genre||'', year: track.year||'', moods: track.moods||[],
     duration: track.duration, seed: track.seed,
     lrcText: track.lrc ? lrcToText(track.lrc) : null,
   });
@@ -1810,6 +1839,7 @@ async function loadLibraryFromDB(){
     state.library.push({
       id: row.id, file: row.fileBlob, url,
       title: row.title, artist: row.artist, album: row.album,
+      genre: row.genre||'', year: row.year||'', moods: row.moods||[],
       duration: row.duration||0, cover, coverBlob: row.coverBlob||null,
       seed: row.seed || seedColors(row.id),
       lrc: row.lrcText ? parseLRC(row.lrcText) : null,
@@ -1892,6 +1922,7 @@ async function parseID3(file){
       if(id==='TIT2') out.title = decodeText(frameData);
       else if(id==='TPE1') out.artist = decodeText(frameData);
       else if(id==='TALB') out.album = decodeText(frameData);
+      else if(id==='TCON') out.genre = decodeText(frameData);
       else if(id==='APIC') out.cover = decodeAPIC(frameData);
       offset += frameSize;
     }
@@ -1916,7 +1947,14 @@ function readMP4Boxes(dv, start, end){
   }
   return boxes;
 }
-async function parseMP4Cover(file){
+/* ---- MP4/M4A full metadata (cover + text atoms) ----
+   Walks the same ilst list once and pulls both the artwork (covr) and the
+   text atoms (©nam/©ART/©alb/©gen/©day/aART/©wrt) — these files carry real
+   tags (artist/album/genre/year), the old version only ever read the cover,
+   which is why imported M4As always showed "Unknown artist/album" even when
+   the file had that info. */
+const MP4_TEXT_FIELDS = {'©nam':'title','©ART':'artist','aART':'artist','©alb':'album','©gen':'genre','©day':'year','©wrt':'composer'};
+async function parseMP4Meta(file){
   try{
     const buf = await file.arrayBuffer();
     const dv = new DataView(buf);
@@ -1924,24 +1962,39 @@ async function parseMP4Cover(file){
     const udta = readMP4Boxes(dv,moov.bodyStart,moov.bodyEnd).find(b=>b.type==='udta'); if(!udta) return null;
     const meta = readMP4Boxes(dv,udta.bodyStart,udta.bodyEnd).find(b=>b.type==='meta'); if(!meta) return null;
     const ilst = readMP4Boxes(dv,meta.bodyStart+4,meta.bodyEnd).find(b=>b.type==='ilst'); if(!ilst) return null;
-    const covr = readMP4Boxes(dv,ilst.bodyStart,ilst.bodyEnd).find(b=>b.type==='covr'); if(!covr) return null;
-    const dataBox = readMP4Boxes(dv,covr.bodyStart,covr.bodyEnd).find(b=>b.type==='data'); if(!dataBox) return null;
-    const typeIndicator = dv.getUint32(dataBox.bodyStart);
-    const imgStart = dataBox.bodyStart+8;
-    const imgBytes = new Uint8Array(buf, imgStart, Math.max(0,dataBox.bodyEnd-imgStart));
-    if(imgBytes.length<50) return null;
-    const mime = typeIndicator===14 ? 'image/png' : 'image/jpeg';
-    const blob = new Blob([imgBytes],{type:mime});
-    return { url: URL.createObjectURL(blob), blob };
+    const out = {};
+    readMP4Boxes(dv,ilst.bodyStart,ilst.bodyEnd).forEach(item=>{
+      const dataBox = readMP4Boxes(dv,item.bodyStart,item.bodyEnd).find(b=>b.type==='data'); if(!dataBox) return;
+      const typeIndicator = dv.getUint32(dataBox.bodyStart);
+      const pStart = dataBox.bodyStart+8, pEnd = dataBox.bodyEnd;
+      if(item.type==='covr'){
+        const imgBytes = new Uint8Array(buf, pStart, Math.max(0,pEnd-pStart));
+        if(imgBytes.length>=50){
+          const mime = typeIndicator===14 ? 'image/png' : 'image/jpeg';
+          const blob = new Blob([imgBytes],{type:mime});
+          out.cover = { url: URL.createObjectURL(blob), blob };
+        }
+        return;
+      }
+      const field = MP4_TEXT_FIELDS[item.type];
+      if(!field || typeIndicator!==1 || pEnd<=pStart) return; // type 1 = UTF-8 text
+      const text = new TextDecoder('utf-8').decode(new Uint8Array(buf,pStart,pEnd-pStart)).trim();
+      if(text && !out[field]) out[field] = text;
+    });
+    return out;
   }catch(e){ return null; }
 }
-/* ---- FLAC cover art (METADATA_BLOCK_PICTURE, block type 6) ---- */
-async function parseFLACCover(file){
+/* ---- FLAC full metadata (cover art, block type 6 + Vorbis comments, block type 4) ----
+   Same deal as MP4: the old version only read the picture block and skipped the
+   VORBIS_COMMENT block entirely, so ARTIST/ALBUM/GENRE tags already sitting in the
+   file were never surfaced even though they were there. */
+async function parseFLACMeta(file){
   try{
     const buf = await file.slice(0, 24*1024*1024).arrayBuffer();
     const dv = new DataView(buf);
     if(dv.byteLength<4 || String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='fLaC') return null;
     let off=4;
+    const out = {};
     while(off+4<=dv.byteLength){
       const first = dv.getUint8(off);
       const isLast = (first & 0x80)!==0;
@@ -1949,7 +2002,7 @@ async function parseFLACCover(file){
       const blen = (dv.getUint8(off+1)<<16)|(dv.getUint8(off+2)<<8)|dv.getUint8(off+3);
       const bodyStart = off+4;
       if(bodyStart+blen>dv.byteLength) break;
-      if(btype===6){
+      if(btype===6){ // METADATA_BLOCK_PICTURE
         let p=bodyStart+4; // skip picture-type
         const mimeLen = dv.getUint32(p); p+=4;
         const mime = new TextDecoder('ascii').decode(new Uint8Array(buf,p,mimeLen)); p+=mimeLen;
@@ -1957,25 +2010,47 @@ async function parseFLACCover(file){
         p+=16; // width, height, depth, colors
         const dataLen = dv.getUint32(p); p+=4;
         const imgBytes = new Uint8Array(buf, p, Math.max(0,dataLen));
-        if(imgBytes.length>=50) return { url: URL.createObjectURL(new Blob([imgBytes],{type:mime||'image/jpeg'})), blob: new Blob([imgBytes],{type:mime||'image/jpeg'}) };
+        if(imgBytes.length>=50) out.cover = { url: URL.createObjectURL(new Blob([imgBytes],{type:mime||'image/jpeg'})), blob: new Blob([imgBytes],{type:mime||'image/jpeg'}) };
+      } else if(btype===4){ // VORBIS_COMMENT — key=value pairs, all lengths little-endian
+        let p=bodyStart;
+        const vendorLen = dv.getUint32(p,true); p+=4+vendorLen;
+        if(p+4<=bodyStart+blen){
+          const count = dv.getUint32(p,true); p+=4;
+          for(let i=0;i<count && p+4<=bodyStart+blen;i++){
+            const clen = dv.getUint32(p,true); p+=4;
+            if(p+clen>bodyStart+blen) break;
+            const str = new TextDecoder('utf-8').decode(new Uint8Array(buf,p,clen)); p+=clen;
+            const eq = str.indexOf('=');
+            if(eq<0) continue;
+            const key = str.slice(0,eq).toUpperCase();
+            const val = str.slice(eq+1).trim();
+            if(!val) continue;
+            if(key==='TITLE' && !out.title) out.title=val;
+            else if(key==='ARTIST' && !out.artist) out.artist=val;
+            else if(key==='ALBUM' && !out.album) out.album=val;
+            else if(key==='GENRE' && !out.genre) out.genre=val;
+            else if((key==='DATE'||key==='YEAR') && !out.year) out.year=val;
+            else if(key==='COMPOSER' && !out.composer) out.composer=val;
+          }
+        }
       }
       off = bodyStart+blen;
       if(isLast) break;
     }
-    return null;
+    return Object.keys(out).length ? out : null;
   }catch(e){ return null; }
 }
 /* ---- Unified tag reader: picks the right parser per container ---- */
 async function parseAudioTags(file){
   const name = (file.name||'').toLowerCase();
   let tags = await parseID3(file); // covers MP3, and any file that happens to carry an ID3v2 tag
-  if(tags && tags.cover) return tags;
+  if(tags && tags.cover && tags.artist && tags.genre) return tags;
   if(/\.(m4a|mp4|aac)$/i.test(name)){
-    const cover = await parseMP4Cover(file);
-    if(cover){ tags = tags||{}; tags.cover = cover; }
+    const mp4tags = await parseMP4Meta(file);
+    if(mp4tags) tags = Object.assign({}, mp4tags, tags||{});
   } else if(/\.flac$/i.test(name)){
-    const cover = await parseFLACCover(file);
-    if(cover){ tags = tags||{}; tags.cover = cover; }
+    const flactags = await parseFLACMeta(file);
+    if(flactags) tags = Object.assign({}, flactags, tags||{});
   }
   return tags;
 }
@@ -2043,6 +2118,9 @@ async function importFiles(fileList){
       title: niceNameFromFile(file.name),
       artist: 'Unknown artist',
       album: 'Unknown album',
+      genre: '',
+      year: '',
+      moods: [],
       duration: 0,
       cover: null,
       coverBlob: null,
@@ -2067,6 +2145,8 @@ async function importFiles(fileList){
         if(tags.title) track.title = tags.title;
         if(tags.artist) track.artist = tags.artist;
         if(tags.album) track.album = tags.album;
+        if(tags.genre) track.genre = tags.genre;
+        if(tags.year) track.year = tags.year;
         if(tags.cover){ track.cover = tags.cover.url; track.coverBlob = tags.cover.blob; }
         persistTrack(track);
         renderCurrentView(); renderQueue();
@@ -3520,6 +3600,8 @@ function detailsHTML(){
     ['Title', t.title || '—'],
     ['Artist', t.artist || '—'],
     ['Album', t.album || '—'],
+    ['Genre', t.genre || '—'],
+    ['Year', (t.year||'').slice(0,4) || '—'],
     ['Duration', fmtTime(dur)],
     ['Format', ext],
     ['File size', size],
@@ -3584,6 +3666,18 @@ function visibleTracks(){
   else if(state.view.startsWith('playlist:')){
     const pl = state.playlists.find(p=>p.id===state.view.slice(9));
     list = pl ? pl.trackIds.map(trackById).filter(Boolean) : [];
+  }
+  else if(state.view.startsWith('genre:')){
+    const g = decodeURIComponent(state.view.slice(6));
+    list = list.filter(t=> (t.genre||'').trim()===g);
+  }
+  else if(state.view.startsWith('artist:')){
+    const a = decodeURIComponent(state.view.slice(7));
+    list = list.filter(t=> (t.artist||'').trim()===a);
+  }
+  else if(state.view.startsWith('mood:')){
+    const m = decodeURIComponent(state.view.slice(5));
+    list = list.filter(t=> (t.moods||[]).includes(m));
   }
   if(state.search){
     const q = state.search.toLowerCase();
@@ -3671,6 +3765,46 @@ function bindRecentRow(area){
   });
 }
 
+/* ---------- Filter chips: Spotify-style horizontal row of quick shortcuts into the
+   library, built entirely from what's actually on the tracks (embedded genre/artist
+   tags, plus manually-assigned mood tags — see "Add mood tag" in the track context
+   menu). Sorted by how many tracks are in each bucket, biggest first, so it re-sorts
+   itself as the library grows instead of needing upkeep. ---------- */
+function computeChips(){
+  const genreCounts={}, artistCounts={}, moodCounts={};
+  state.library.forEach(t=>{
+    const g=(t.genre||'').trim(); if(g) genreCounts[g]=(genreCounts[g]||0)+1;
+    const a=(t.artist||'').trim(); if(a && a!=='Unknown artist') artistCounts[a]=(artistCounts[a]||0)+1;
+    (t.moods||[]).forEach(m=>{ if(m) moodCounts[m]=(moodCounts[m]||0)+1; });
+  });
+  const dynamic = [];
+  Object.entries(moodCounts).forEach(([name,count])=> dynamic.push({type:'mood',name,count}));
+  Object.entries(genreCounts).forEach(([name,count])=> dynamic.push({type:'genre',name,count}));
+  Object.entries(artistCounts).filter(([,c])=>c>=2).forEach(([name,count])=> dynamic.push({type:'artist',name,count}));
+  dynamic.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name));
+  const chips = [{type:'all', name:'All', count:null, active: state.view==='home'}];
+  if(state.favorites.size) chips.push({type:'favorites', name:'Favorites', count: state.favorites.size, active: state.view==='favorites'});
+  dynamic.forEach(d=> chips.push(Object.assign({}, d, {active: state.view === d.type+':'+encodeURIComponent(d.name)})));
+  return chips;
+}
+function chipRowHTML(){
+  const chips = computeChips();
+  if(chips.length<=1) return ''; // nothing but "All" yet — not worth a row
+  return `<div class="chip-section"><div class="chip-row">${chips.map(c=>
+    `<button class="chip ${c.active?'active':''}" data-chip-type="${c.type}" data-chip-name="${escapeHtml(c.name)}">${escapeHtml(c.name)}${c.count?`<span class="chipcount">${c.count}</span>`:''}</button>`
+  ).join('')}</div></div>`;
+}
+function bindChipRow(area){
+  area.querySelectorAll('.chip[data-chip-type]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const type=btn.dataset.chipType, name=btn.dataset.chipName;
+      if(type==='all') setView('home');
+      else if(type==='favorites') setView('favorites');
+      else setView(type+':'+encodeURIComponent(name));
+    });
+  });
+}
+
 function renderCurrentView(){
   const area = document.getElementById('libraryArea');
   const tracks = visibleTracks();
@@ -3680,6 +3814,9 @@ function renderCurrentView(){
     const pl = state.playlists.find(p=>p.id===state.view.slice(9));
     title = pl ? pl.name : 'Playlist';
   }
+  if(!title && state.view.startsWith('genre:')) title = decodeURIComponent(state.view.slice(6));
+  if(!title && state.view.startsWith('artist:')) title = decodeURIComponent(state.view.slice(7));
+  if(!title && state.view.startsWith('mood:')) title = decodeURIComponent(state.view.slice(5));
   document.getElementById('viewTitle').textContent = title||'Library';
   document.getElementById('viewCount').textContent = tracks.length ? tracks.length+' track'+(tracks.length===1?'':'s') : '';
   document.getElementById('libCount').textContent = state.library.length;
@@ -3704,6 +3841,8 @@ function renderCurrentView(){
   const allChecked = selMode && tracks.length>0 && tracks.every(t=>state.selectedIds.has(t.id));
   const gridMode = !selMode && state.libraryViewMode==='grid';
   const showRecent = state.view==='home' && !state.search && state.recentlyPlayed.length>0;
+  const chipEligibleView = state.view==='home' || state.view==='favorites' || state.view.startsWith('genre:') || state.view.startsWith('artist:') || state.view.startsWith('mood:');
+  const showChips = chipEligibleView && !state.search;
 
   const headCtrls = `<div class="headctrls">
       <select class="sortselect" id="sortSelect" title="Sort by">
@@ -3748,10 +3887,12 @@ function renderCurrentView(){
 
   area.innerHTML = `
     ${showRecent ? renderRecentRow() : ''}
+    ${showChips ? chipRowHTML() : ''}
     <div class="section-head"><div class="titlewrap"><h2>${title}</h2><span class="hint">${selMode?'Tap rows to select':(gridMode?'Click a card to play':'Click a row to play')}</span></div>${headCtrls}</div>
     ${gridMode ? gridHTML : listHTML}`;
 
   if(showRecent) bindRecentRow(area);
+  if(showChips) bindChipRow(area);
 
   area.querySelectorAll('tr[data-id]').forEach(row=>{
     row.addEventListener('click', e=>{
@@ -4193,6 +4334,7 @@ function renderCtxMain(trackId){
   let html = `
     <button data-act="queue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add to queue</button>
     <button data-act="playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Add to playlist</button>
+    <button data-act="mood"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.24 12.24a6 6 0 00-8.49-8.49L5 10.5V19h8.5z"/><path d="M16 8L2 22M17.5 15H9"/></svg>Add mood tag</button>
     <button data-act="fav"><svg viewBox="0 0 24 24" fill="${fav?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-9.5-9C.7 8.2 2 4.5 5.5 4c2-.3 3.7.7 4.5 2 .8-1.3 2.5-2.3 4.5-2 3.5.5 4.8 4.2 3 8-2.5 4.5-9.5 9-9.5 9z"/></svg>${fav?'Remove from favorites':'Add to favorites'}</button>
     <div class="ctx-sep"></div>`;
   if(inPlaylistView) html += `<button data-act="remove-playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>Remove from this playlist</button>`;
@@ -4207,6 +4349,25 @@ function renderCtxPlaylistPicker(trackId){
     html += `<button data-act="toggle-pl" data-pl="${p.id}">${escapeHtml(p.name)}${has?'<span class="ctx-check">✓</span>':''}</button>`;
   });
   html += `<div class="ctx-sep"></div><button data-act="new-pl">＋ New playlist</button>`;
+  ctxMenu.innerHTML = html;
+}
+/* All distinct mood tags currently in use across the library, for the picker below —
+   there's no separate "moods list" in state; it's just derived from tracks on the fly. */
+function allMoodNames(){
+  const set = new Set();
+  state.library.forEach(t=> (t.moods||[]).forEach(m=> m && set.add(m)));
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function renderCtxMoodPicker(trackId){
+  const t = trackById(trackId);
+  const moods = allMoodNames();
+  let html = `<button data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>Back</button><div class="ctx-sep"></div><div class="ctx-label">Mood tags</div>`;
+  if(moods.length===0) html += `<div style="padding:6px 10px;font-size:12px;color:var(--text-dim2);">No mood tags yet</div>`;
+  moods.forEach(name=>{
+    const has = t && (t.moods||[]).includes(name);
+    html += `<button data-act="toggle-mood" data-mood="${escapeHtml(name)}">${escapeHtml(name)}${has?'<span class="ctx-check">✓</span>':''}</button>`;
+  });
+  html += `<div class="ctx-sep"></div><button data-act="new-mood">＋ New mood tag</button>`;
   ctxMenu.innerHTML = html;
 }
 /* ============ LONG-PRESS QUICK ACTIONS + SWIPE GESTURES (touch only) ============
@@ -4310,6 +4471,7 @@ ctxMenu.addEventListener('click', e=>{
   if(act==='queue'){ enqueueTrack(ctxTrackId); closeCtxMenu(); }
   else if(act==='fav'){ toggleFavorite(ctxTrackId); closeCtxMenu(); }
   else if(act==='playlist'){ renderCtxPlaylistPicker(ctxTrackId); repositionCtxMenu(); }
+  else if(act==='mood'){ renderCtxMoodPicker(ctxTrackId); repositionCtxMenu(); }
   else if(act==='back'){ renderCtxMain(ctxTrackId); repositionCtxMenu(); }
   else if(act==='remove-playlist'){
     const pl = state.playlists.find(p=>p.id===state.view.slice(9));
@@ -4332,6 +4494,24 @@ ctxMenu.addEventListener('click', e=>{
     const trackId = ctxTrackId;
     closeCtxMenu();
     promptNewPlaylist(trackId);
+  }
+  else if(act==='toggle-mood'){
+    const t = trackById(ctxTrackId);
+    const name = btn.dataset.mood;
+    if(t){
+      t.moods = t.moods||[];
+      if(t.moods.includes(name)) t.moods = t.moods.filter(m=>m!==name);
+      else t.moods.push(name);
+      persistTrack(t);
+      if(state.view.startsWith('mood:')) renderCurrentView();
+    }
+    renderCtxMoodPicker(ctxTrackId);
+    repositionCtxMenu();
+  }
+  else if(act==='new-mood'){
+    const trackId = ctxTrackId;
+    closeCtxMenu();
+    promptNewMood(trackId);
   }
 });
 document.addEventListener('click', e=>{
@@ -4388,6 +4568,22 @@ async function promptNewPlaylist(trackId){
   state.playlists.push(pl); persistMeta(); renderPlaylists();
   if(trackId) toast('Added to "'+name+'"');
 }
+/* Mood tags aren't a separate collection — they live on the tracks themselves
+   (track.moods), the same way genre/artist chips are derived from track.genre/
+   track.artist. Creating one just means tagging this track with a new name;
+   it appears as its own chip automatically once at least one track has it. */
+async function promptNewMood(trackId){
+  const name = await showPromptModal({title:'New mood tag', placeholder:'e.g. Workout, Chill, Motivation', confirmLabel:'Create'});
+  if(!name) return;
+  const t = trackById(trackId);
+  if(t){
+    t.moods = t.moods||[];
+    if(!t.moods.includes(name)) t.moods.push(name);
+    persistTrack(t);
+    renderCurrentView();
+  }
+  toast('Tagged "'+name+'"');
+}
 
 /* ============ PLAYLISTS ============ */
 function renderPlaylists(){
@@ -4399,6 +4595,40 @@ function renderPlaylists(){
 document.getElementById('addPlaylistBtn').onclick = ()=>{ promptNewPlaylist(null); };
 
 /* ============ NAV / VIEWS ============ */
+/* ---------- Rescan tags ----------
+   Tracks imported before genre/artist/album tag-reading existed (or before it covered
+   FLAC/M4A) are stuck with whatever was saved at import time. This re-runs the tag
+   parser against every file already in the library and fills in anything missing —
+   it never overwrites a field the user or a previous scan already populated. */
+let rescanning = false;
+async function rescanLibraryTags(){
+  if(rescanning) return;
+  if(state.library.length===0){ toast('Library is empty'); return; }
+  rescanning = true;
+  const btn = document.getElementById('rescanTagsBtn');
+  btn.classList.add('spinning'); btn.disabled = true;
+  let updated = 0;
+  for(const t of state.library){
+    if(!t.file) continue;
+    try{
+      const tags = await parseAudioTags(t.file);
+      if(!tags) continue;
+      let changed = false;
+      if(tags.artist && (!t.artist || t.artist==='Unknown artist')){ t.artist = tags.artist; changed = true; }
+      if(tags.album && (!t.album || t.album==='Unknown album')){ t.album = tags.album; changed = true; }
+      if(tags.genre && !t.genre){ t.genre = tags.genre; changed = true; }
+      if(tags.year && !t.year){ t.year = tags.year; changed = true; }
+      if(tags.cover && !t.cover){ t.cover = tags.cover.url; t.coverBlob = tags.cover.blob; changed = true; }
+      if(changed){ updated++; persistTrack(t); }
+    }catch(e){ /* skip this file, keep going */ }
+  }
+  rescanning = false;
+  btn.classList.remove('spinning'); btn.disabled = false;
+  renderCurrentView(); renderQueue(); updateNowPlayingUI();
+  toast(updated ? updated+' track'+(updated===1?'':'s')+' updated' : 'No new tags found');
+}
+document.getElementById('rescanTagsBtn').addEventListener('click', rescanLibraryTags);
+
 function setView(view){
   state.view = view;
   document.querySelectorAll('.navitem[data-view]').forEach(n=>n.classList.toggle('active', n.dataset.view===view));
